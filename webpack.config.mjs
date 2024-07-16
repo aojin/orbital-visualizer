@@ -1,6 +1,6 @@
 import path from "path";
-import { fileURLToPath } from "url";
 import HtmlWebpackPlugin from "html-webpack-plugin";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,32 +12,40 @@ export default {
     path: path.resolve(__dirname, "dist"),
     publicPath: "/",
   },
+  resolve: {
+    alias: {
+      three: path.resolve(__dirname, "node_modules/three"),
+    },
+  },
   module: {
     rules: [
       {
-        test: /\.m?js$/,
+        test: /\.js$/,
         exclude: /node_modules/,
         use: {
           loader: "babel-loader",
-          options: {
-            presets: ["@babel/preset-env"],
-          },
         },
+      },
+      {
+        test: /\.css$/,
+        use: ["style-loader", "css-loader"],
+      },
+      {
+        test: /\.(png|jpg|jpeg|gif|svg)$/i,
+        type: "asset/resource",
       },
     ],
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: "./public/index.html",
-      filename: "index.html",
+      template: "./src/index.html",
     }),
   ],
   devServer: {
     static: {
       directory: path.join(__dirname, "public"),
     },
-    compress: true,
-    port: 3000,
     historyApiFallback: true,
+    port: 9000,
   },
 };
