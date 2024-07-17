@@ -168,12 +168,27 @@ const fetchCelestrakData = async (retryCount = 0) => {
   }
 };
 
-// Define API route for fetching satellite data
+const getTopSatelliteOwners = (satcatData) => {
+  const ownerCounts = Object.values(satcatData).reduce((acc, item) => {
+    const owner = item.owner || "Unknown";
+    acc[owner] = (acc[owner] || 0) + 1;
+    return acc;
+  }, {});
+
+  const sortedOwners = Object.entries(ownerCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+
+  return sortedOwners;
+};
+
 app.get("/api/satellites", async (req, res) => {
   try {
     const data = await fetchCelestrakData();
     const initializedData = await initializeTleDataWithSatcat(data);
-    res.json(initializedData);
+    const satcatData = await fetchAndCacheSatcatData();
+    const topOwners = getTopSatelliteOwners(satcatData);
+    res.json({ satellites: initializedData, topOwners });
   } catch (error) {
     console.error("Error in /api/satellites route:", error);
     res.status(500).send("An error occurred while fetching satellite data.");

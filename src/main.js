@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GUI } from "dat.gui";
+import { createAccordion } from "../utils/Accordion.js";
 
 let scene, camera, renderer, controls;
 let previousScene;
@@ -74,6 +75,7 @@ function logShaderErrors() {
     }
   });
 }
+``;
 
 async function fetchSatellites() {
   try {
@@ -81,9 +83,14 @@ async function fetchSatellites() {
     if (!response.ok) {
       throw new Error("Network response was not ok");
     }
-    const data = await response.json();
-    console.log("Satellite data:", data); // Log the data to verify it
-    return data;
+    const { satellites, topOwners } = await response.json();
+    console.log("Satellite data:", satellites); // Log the satellite data to verify it
+    console.log("Top Owners data:", topOwners); // Log the top owners data to verify it
+
+    // Create accordion
+    createAccordion(topOwners, satellites.length);
+
+    return satellites;
   } catch (error) {
     console.error("Error fetching satellite data:", error);
   }
@@ -217,7 +224,7 @@ function init() {
         );
 
         camera.position.copy(
-          earthCenter.clone().add(new THREE.Vector3(0, 0, 10)) // Ensure this value allows a zoomed-out view
+          earthCenter.clone().add(new THREE.Vector3(0, 0, controls.maxDistance)) // Ensure this value allows a zoomed-out view
         );
         camera.lookAt(earthCenter); // Look at the center of the Earth
 
@@ -330,7 +337,6 @@ function init() {
     });
 }
 
-// Function to add satellites to the scene using InstancedMesh
 function addSatellitesToScene(satellites, earthRadius) {
   const satelliteGeometry = new THREE.SphereGeometry(0.1, 8, 8);
   const satelliteMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
@@ -360,9 +366,6 @@ function addSatellitesToScene(satellites, earthRadius) {
   });
 
   scene.add(instancedMesh);
-
-  // Display the count of rendered satellites
-  displaySatelliteCount(satelliteCount);
 }
 
 // Function to convert latitude and longitude to Cartesian coordinates
@@ -375,18 +378,6 @@ function latLongToCartesian(lat, lon, radius) {
   const z = radius * Math.sin(phi) * Math.sin(theta);
 
   return new THREE.Vector3(x, y, z);
-}
-
-// Function to display the count of rendered satellites
-function displaySatelliteCount(count) {
-  const counter = document.createElement("div");
-  counter.style.position = "absolute";
-  counter.style.top = "10px";
-  counter.style.left = "10px";
-  counter.style.color = "white";
-  counter.style.fontSize = "20px";
-  counter.innerText = `Satellites Rendered: ${count}`;
-  document.body.appendChild(counter);
 }
 
 // Initialize the scene when the DOM content is loaded
