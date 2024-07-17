@@ -194,19 +194,23 @@ function init() {
       controls.maxDistance = 50;
 
       // Function to convert latitude and longitude to Cartesian coordinates
-      const latLongToCartesian = (lat, lon) => {
+      const latLongToCartesian = (lat, lon, radius) => {
         const phi = (90 - lat) * (Math.PI / 180);
         const theta = (lon + 180) * (Math.PI / 180);
 
-        const x = -(earthRadius * Math.sin(phi) * Math.cos(theta));
-        const y = earthRadius * Math.cos(phi);
-        const z = earthRadius * Math.sin(phi) * Math.sin(theta);
+        const x = -(radius * Math.sin(phi) * Math.cos(theta));
+        const y = radius * Math.cos(phi);
+        const z = radius * Math.sin(phi) * Math.sin(theta);
 
         return new THREE.Vector3(x, y, z);
       };
 
       const setInitialView = (latitude, longitude) => {
-        const earthCenter = latLongToCartesian(latitude, longitude);
+        const earthCenter = latLongToCartesian(
+          latitude,
+          longitude,
+          earthRadius
+        );
 
         camera.position.copy(
           earthCenter.clone().add(new THREE.Vector3(0, 0, 10)) // Ensure this value allows a zoomed-out view
@@ -295,7 +299,7 @@ function init() {
       fetchSatellites().then((data) => {
         if (data) {
           console.log("Fetched satellite data:", data);
-          // Process the satellite data as needed
+          addSatellitesToScene(data, earthRadius);
         }
       });
 
@@ -320,6 +324,66 @@ function init() {
       console.error("Error loading textures:", err);
       showErrorPage("Error loading textures. Please try again later.");
     });
+}
+
+// Function to add satellites to the scene using InstancedMesh
+function addSatellitesToScene(satellites, earthRadius) {
+  const satelliteGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+  const satelliteMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const satelliteCount = satellites.length;
+
+  const instancedMesh = new THREE.InstancedMesh(
+    satelliteGeometry,
+    satelliteMaterial,
+    satelliteCount
+  );
+
+  const dummy = new THREE.Object3D();
+
+  satellites.forEach((satellite, index) => {
+    const { latitude, longitude, altitude } = satellite;
+
+    console.log({ altitude });
+    // Apply a scaling factor to the altitude for better visualization
+    const altitudeScaleFactor = 0.01; // Adjust this factor as needed
+    const position = latLongToCartesian(
+      latitude,
+      longitude,
+      earthRadius + altitude * altitudeScaleFactor
+    ); // Adjust radius to place satellites in orbit
+    dummy.position.copy(position);
+    dummy.updateMatrix();
+    instancedMesh.setMatrixAt(index, dummy.matrix);
+  });
+
+  scene.add(instancedMesh);
+
+  // Display the count of rendered satellites
+  displaySatelliteCount(satelliteCount);
+}
+
+// Function to convert latitude and longitude to Cartesian coordinates
+function latLongToCartesian(lat, lon, radius) {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
+
+  const x = -(radius * Math.sin(phi) * Math.cos(theta));
+  const y = radius * Math.cos(phi);
+  const z = radius * Math.sin(phi) * Math.sin(theta);
+
+  return new THREE.Vector3(x, y, z);
+}
+
+// Function to display the count of rendered satellites
+function displaySatelliteCount(count) {
+  const counter = document.createElement("div");
+  counter.style.position = "absolute";
+  counter.style.top = "10px";
+  counter.style.left = "10px";
+  counter.style.color = "white";
+  counter.style.fontSize = "20px";
+  counter.innerText = `Satellites Rendered: ${count}`;
+  document.body.appendChild(counter);
 }
 
 // Initialize the scene when the DOM content is loaded

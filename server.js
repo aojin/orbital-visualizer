@@ -11,6 +11,7 @@ import {
   getCatalogNumber,
   getCOSPAR,
   getLatLngObj,
+  getSatelliteInfo,
 } from "tle.js"; // Import specific functions from tle.js
 
 const app = express();
@@ -28,6 +29,7 @@ await redisClient.connect(); // Connect to Redis server
 const getAsync = (key) => redisClient.get(key);
 const setAsync = (key, value, expiration) =>
   redisClient.set(key, value, { EX: expiration });
+const getTTL = (key) => redisClient.ttl(key);
 
 // GraphQL setup
 const apolloServer = new ApolloServer({ schema: graphqlSchema });
@@ -44,8 +46,10 @@ const fetchCelestrakData = async (retryCount = 0) => {
   try {
     const cachedData = await getAsync(cacheKey);
     if (cachedData) {
-      console.log("Serving data from cache");
-      return JSON.parse(cachedData);
+      const ttl = await getTTL(cacheKey);
+      console.log(`Serving data from cache. TTL: ${ttl / 60} minutes`);
+      const parsedData = JSON.parse(cachedData);
+      return parsedData;
     }
 
     // Fetch from Celestrak
@@ -65,6 +69,7 @@ const fetchCelestrakData = async (retryCount = 0) => {
         const cosparId = getCOSPAR(tle);
         const timestampMS = Date.now();
         const latLonObj = getLatLngObj(tle, timestampMS);
+        const satInfo = getSatelliteInfo(tle, timestampMS);
 
         parsedData.push({
           name: satName,
@@ -74,15 +79,14 @@ const fetchCelestrakData = async (retryCount = 0) => {
           tle2: lines[i + 2].trim(),
           latitude: latLonObj.lat,
           longitude: latLonObj.lng,
+          altitude: satInfo.height, // Include altitude
         });
       }
     }
 
-    // Log the satellite data before caching
-    console.log("Satellite data before caching:", parsedData);
+    console.log(`Parsed and cached ${parsedData.length} satellite records.`); // Summary log
 
     await setAsync(cacheKey, JSON.stringify(parsedData), cacheExpiration);
-    console.log("Data fetched from Celestrak and cached");
     return parsedData;
   } catch (error) {
     if (error.code === "NR_CLOSED") {
@@ -101,8 +105,6 @@ const fetchCelestrakData = async (retryCount = 0) => {
 app.get("/api/satellites", async (req, res) => {
   try {
     const data = await fetchCelestrakData();
-    console.log("Data returned from /api/satellites route:", data); // Log data before sending
-    res.setHeader("Content-Type", "application/json");
     res.json(data);
   } catch (error) {
     console.error("Error in /api/satellites route:", error);
