@@ -3,9 +3,11 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GUI } from "dat.gui";
 import { createAccordion } from "../utils/Accordion.js";
 
-let scene, camera, renderer, controls;
+let scene, camera, renderer, controls, raycaster, mouse;
 let previousScene;
 let initialized = false;
+let tooltip, tooltipTimeout;
+const tooltipDelay = 200; // Delay before showing tooltip (ms)
 
 function disposeResources(object) {
   if (object.geometry) object.geometry.dispose();
@@ -126,6 +128,13 @@ function init() {
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.debug.checkShaderErrors = true; // Enable shader error logging
+
+  // Raycaster and mouse
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2();
+
+  // Tooltip
+  createTooltip();
 
   // Load textures
   const textureLoader = new THREE.TextureLoader();
@@ -324,6 +333,9 @@ function init() {
         renderer.setSize(window.innerWidth, window.innerHeight);
       });
 
+      // Mouse move event listener for tooltips
+      window.addEventListener("mousemove", onMouseMove);
+
       // Start the animation loop
       animate();
     })
@@ -434,12 +446,13 @@ async function addSatellitesToScene(satellites, earthRadius) {
   }
 
   // Create and add instanced meshes to the scene
-  instancedMeshData.forEach(({ material, positions }) => {
+  instancedMeshData.forEach(({ material, positions, satellites }) => {
     const instancedMesh = new THREE.InstancedMesh(
       satelliteGeometry,
       material,
       positions.length
     );
+    instancedMesh.satellites = satellites; // Store satellites data in instancedMesh
     const dummy = new THREE.Object3D();
 
     positions.forEach((position, index) => {
@@ -468,11 +481,12 @@ function addSatelliteToInstancedMesh(
 
   let data = instancedMeshData.find((data) => data.material === material);
   if (!data) {
-    data = { material, positions: [] };
+    data = { material, positions: [], satellites: [] };
     instancedMeshData.push(data);
   }
 
   data.positions.push(position);
+  data.satellites.push(satellite); // Store satellite data
 }
 
 // Function to convert latitude and longitude to Cartesian coordinates
@@ -489,3 +503,62 @@ function latLongToCartesian(lat, lon, radius) {
 
 // Initialize the scene when the DOM content is loaded
 document.addEventListener("DOMContentLoaded", init);
+
+// Tooltip functions
+function createTooltip() {
+  tooltip = document.createElement("div");
+  tooltip.style.position = "absolute";
+  tooltip.style.background = "rgba(0, 0, 0, 0.7)";
+  tooltip.style.color = "white";
+  tooltip.style.padding = "5px";
+  tooltip.style.borderRadius = "5px";
+  tooltip.style.pointerEvents = "none";
+  tooltip.style.display = "none";
+  document.body.appendChild(tooltip);
+}
+
+function showTooltip(event, satellite) {
+  clearTimeout(tooltipTimeout);
+  tooltipTimeout = setTimeout(() => {
+    tooltip.innerHTML = `
+      <div><strong>Name:</strong> ${satellite.name}</div>
+      <div><strong>Catalog Number:</strong> ${satellite.catalogNumber}</div>
+      <div><strong>COSPAR ID:</strong> ${satellite.cosparId}</div>
+      <div><strong>Latitude:</strong> ${satellite.latitude.toFixed(2)}</div>
+      <div><strong>Longitude:</strong> ${satellite.longitude.toFixed(2)}</div>
+      <div><strong>Altitude:</strong> ${satellite.altitude.toFixed(2)} km</div>
+      <div><strong>Country:</strong> ${satellite.country}</div>
+      <div><strong>Object Type:</strong> ${satellite.objectType}</div>
+    `;
+    tooltip.style.left = event.clientX + "px";
+    tooltip.style.top = event.clientY + "px";
+    tooltip.style.display = "block";
+  }, tooltipDelay);
+}
+
+function hideTooltip() {
+  clearTimeout(tooltipTimeout);
+  tooltip.style.display = "none";
+}
+
+function onMouseMove(event) {
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(scene.children, true);
+
+  if (intersects.length > 0) {
+    const instanceId = intersects[0].instanceId;
+    const object = intersects[0].object;
+    if (object instanceof THREE.InstancedMesh && instanceId !== undefined) {
+      const satellite = object.satellites[instanceId];
+      if (satellite) {
+        showTooltip(event, satellite);
+        return;
+      }
+    }
+  }
+
+  hideTooltip();
+}
