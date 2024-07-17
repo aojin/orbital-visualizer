@@ -4,6 +4,7 @@ import { GUI } from "dat.gui";
 
 let scene, camera, renderer, controls;
 let previousScene;
+let initialized = false;
 
 function disposeResources(object) {
   if (object.geometry) object.geometry.dispose();
@@ -89,6 +90,9 @@ async function fetchSatellites() {
 }
 
 function init() {
+  if (initialized) return; // Prevent multiple initializations
+  initialized = true;
+
   // Show spinner
   const spinner = document.getElementById("spinner");
   const canvasContainer = document.getElementById("canvasContainer");
@@ -156,23 +160,23 @@ function init() {
         map: earthTexture,
         bumpMap: bumpTexture,
         bumpScale: 0.05,
-        onBeforeCompile: (shader) => {
-          // Log the uniforms for debugging
-          console.log("Shader Uniforms:", shader.uniforms);
-          // Adding custom shader code to catch errors
-          shader.vertexShader = `#define ORIGINAL
-            ${shader.vertexShader}`;
-          shader.fragmentShader = `#define ORIGINAL
-            ${shader.fragmentShader}`;
-        },
+        // onBeforeCompile: (shader) => {
+        //   // Log the uniforms for debugging
+        //   console.log("Shader Uniforms:", shader.uniforms);
+        //   // Adding custom shader code to catch errors
+        //   shader.vertexShader = `#define ORIGINAL
+        //     ${shader.vertexShader}`;
+        //   shader.fragmentShader = `#define ORIGINAL
+        //     ${shader.fragmentShader}`;
+        // },
       });
       const earth = new THREE.Mesh(geometry, material);
       scene.add(earth);
 
       // Log the program info after the shaders are compiled and linked
-      setTimeout(() => {
-        logShaderErrors();
-      }, 1000); // Adjust timeout as needed
+      // setTimeout(() => {
+      //   logShaderErrors();
+      // }, 1000); // Adjust timeout as needed
 
       // Lights
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -343,7 +347,6 @@ function addSatellitesToScene(satellites, earthRadius) {
   satellites.forEach((satellite, index) => {
     const { latitude, longitude, altitude } = satellite;
 
-    console.log({ altitude });
     // Apply a scaling factor to the altitude for better visualization
     const altitudeScaleFactor = 0.01; // Adjust this factor as needed
     const position = latLongToCartesian(

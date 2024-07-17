@@ -13,6 +13,13 @@ import {
   getLatLngObj,
   getSatelliteInfo,
 } from "tle.js"; // Import specific functions from tle.js
+import {
+  OWNER_MAP,
+  OPS_STATUS_DESCRIPTIONS,
+  OBJECT_TYPE_MAP,
+  ORBIT_TYPE_MAP,
+  LAUNCH_SITE_MAP,
+} from "./utils/mappings.js";
 
 const app = express();
 app.use(cors());
@@ -29,7 +36,71 @@ await redisClient.connect(); // Connect to Redis server
 const getAsync = (key) => redisClient.get(key);
 const setAsync = (key, value, expiration) =>
   redisClient.set(key, value, { EX: expiration });
-const getTTL = (key) => redisClient.ttl(key);
+const delAsync = (key) => redisClient.del(key); // Delete key from Redis
+
+// Fetch and cache SATCAT data
+const fetchAndCacheSatcatData = async () => {
+  const cacheKey = "satcatData";
+  const cacheExpiration = 60 * 60 * 24; // 24 hours
+
+  try {
+    const cachedData = await getAsync(cacheKey);
+    if (cachedData) {
+      console.log("Serving SATCAT data from cache");
+      return JSON.parse(cachedData);
+    }
+
+    const response = await axios.get(
+      "https://celestrak.org/satcat/records.php?GROUP=active&FORMAT=JSON"
+    );
+    console.log("SATCAT data fetched from API:", response.data);
+
+    const satcatData = response.data.reduce((acc, item) => {
+      acc[item.NORAD_CAT_ID] = {
+        country: item.OWNER,
+        objectType: OBJECT_TYPE_MAP[item.OBJECT_TYPE] || "Unknown",
+        opsStatus: OPS_STATUS_DESCRIPTIONS[item.OPS_STATUS_CODE] || "Unknown",
+        launchDate: item.LAUNCH_DATE || "Unknown",
+        launchSite: LAUNCH_SITE_MAP[item.LAUNCH_SITE] || "Unknown",
+        decayDate: item.DECAY_DATE || "Unknown",
+        owner: OWNER_MAP[item.OWNER] || "Unknown",
+        orbitType: ORBIT_TYPE_MAP[item.ORBIT_TYPE] || "Unknown",
+        period: item.PERIOD || null,
+        inclination: item.INCLINATION || null,
+        apogee: item.APOGEE || null,
+        perigee: item.PERIGEE || null,
+      };
+      return acc;
+    }, {});
+
+    await setAsync(cacheKey, JSON.stringify(satcatData), cacheExpiration);
+    return satcatData;
+  } catch (error) {
+    console.error("Error fetching SATCAT data:", error);
+    return {};
+  }
+};
+
+// Initialize TLE data with SATCAT data if missing
+const initializeTleDataWithSatcat = async (tleData) => {
+  const satcatData = await fetchAndCacheSatcatData();
+  return tleData.map((satellite) => {
+    const satcatInfo = satcatData[satellite.catalogNumber] || {};
+    satellite.country = satcatInfo.country || "Unknown";
+    satellite.objectType = satcatInfo.objectType || "Unknown";
+    satellite.opsStatus = satcatInfo.opsStatus || "Unknown";
+    satellite.launchDate = satcatInfo.launchDate || "Unknown";
+    satellite.launchSite = satcatInfo.launchSite || "Unknown";
+    satellite.decayDate = satcatInfo.decayDate || "Unknown";
+    satellite.owner = satcatInfo.owner || "Unknown";
+    satellite.orbitType = satcatInfo.orbitType || "Unknown";
+    satellite.period = satcatInfo.period || null;
+    satellite.inclination = satcatInfo.inclination || null;
+    satellite.apogee = satcatInfo.apogee || null;
+    satellite.perigee = satcatInfo.perigee || null;
+    return satellite;
+  });
+};
 
 // GraphQL setup
 const apolloServer = new ApolloServer({ schema: graphqlSchema });
@@ -46,8 +117,7 @@ const fetchCelestrakData = async (retryCount = 0) => {
   try {
     const cachedData = await getAsync(cacheKey);
     if (cachedData) {
-      const ttl = await getTTL(cacheKey);
-      console.log(`Serving data from cache. TTL: ${ttl / 60} minutes`);
+      console.log("Serving data from cache");
       const parsedData = JSON.parse(cachedData);
       return parsedData;
     }
@@ -84,15 +154,12 @@ const fetchCelestrakData = async (retryCount = 0) => {
       }
     }
 
-    console.log(`Parsed and cached ${parsedData.length} satellite records.`); // Summary log
-
     await setAsync(cacheKey, JSON.stringify(parsedData), cacheExpiration);
     return parsedData;
   } catch (error) {
     if (error.code === "NR_CLOSED") {
       console.error("Redis connection closed. Reconnecting...");
       await redisClient.connect(); // Reconnect to Redis server
-      // Retry or handle appropriately
       return fetchCelestrakData(retryCount + 1); // Retry fetching data
     } else {
       console.error("Error fetching Celestrak data:", error);
@@ -105,10 +172,24 @@ const fetchCelestrakData = async (retryCount = 0) => {
 app.get("/api/satellites", async (req, res) => {
   try {
     const data = await fetchCelestrakData();
-    res.json(data);
+    const initializedData = await initializeTleDataWithSatcat(data);
+    res.json(initializedData);
   } catch (error) {
     console.error("Error in /api/satellites route:", error);
     res.status(500).send("An error occurred while fetching satellite data.");
+  }
+});
+
+// Define API route for refreshing SATCAT cache
+app.get("/api/refresh-satcat-cache", async (req, res) => {
+  try {
+    const cacheKey = "satcatData";
+    await delAsync(cacheKey); // Delete the current cache
+    await fetchAndCacheSatcatData(); // Fetch and cache new SATCAT data
+    res.send("SATCAT cache has been refreshed.");
+  } catch (error) {
+    console.error("Error refreshing SATCAT cache:", error);
+    res.status(500).send("An error occurred while refreshing SATCAT cache.");
   }
 });
 
