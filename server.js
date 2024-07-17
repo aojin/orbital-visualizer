@@ -20,7 +20,11 @@ import {
   ORBIT_TYPE_MAP,
   LAUNCH_SITE_MAP,
 } from "./utils/mappings.js";
-import { getFlagPath } from "./utils/downloadFlags.js";
+import {
+  getFlagPath,
+  downloadFlagOverwrite,
+  getCountryCode,
+} from "./utils/downloadFlags.js";
 
 const app = express();
 app.use(cors());
@@ -53,7 +57,7 @@ const fetchAndCacheSatcatData = async () => {
     }
 
     const response = await axios.get(
-      "https://celestrak.org/satcat/records.php?GROUP=active&FORMAT=JSON"
+      "https://celestrak.org/satcat/records.php?GROUP=all&FORMAT=JSON"
     );
     console.log("SATCAT data fetched from API:", response.data);
 
@@ -125,12 +129,17 @@ const fetchCelestrakData = async (retryCount = 0) => {
     }
 
     // Fetch from Celestrak
-    const response = await axios.get(
+    const activeResponse = await axios.get(
       "https://celestrak.com/NORAD/elements/gp.php?GROUP=active&FORMAT=tle"
     );
+    const inactiveResponse = await axios.get(
+      "https://celestrak.com/NORAD/elements/gp.php?GROUP=inactive&FORMAT=tle"
+    );
 
-    const tleData = response.data;
-    const lines = tleData.split("\n");
+    const activeTleData = activeResponse.data;
+    const inactiveTleData = inactiveResponse.data;
+    const combinedTleData = `${activeTleData}\n${inactiveTleData}`;
+    const lines = combinedTleData.split("\n");
     const parsedData = [];
 
     for (let i = 0; i < lines.length; i += 3) {
@@ -142,7 +151,9 @@ const fetchCelestrakData = async (retryCount = 0) => {
         const timestampMS = Date.now();
         const latLonObj = getLatLngObj(tle, timestampMS);
         const satInfo = getSatelliteInfo(tle, timestampMS);
-        const { flagPath } = await getFlagPath(OWNER_MAP[tle] || tle); // Get flag path
+        const ownerKey = tle.split("\n")[0].trim();
+        const { flagPath } = await getFlagPath(OWNER_MAP[ownerKey] || ownerKey); // Get flag path
+        console.log(`Setting flagPath for ${satName}: ${flagPath.flagPath}`); // Log the flag path
 
         parsedData.push({
           name: satName,
@@ -153,7 +164,7 @@ const fetchCelestrakData = async (retryCount = 0) => {
           latitude: latLonObj.lat,
           longitude: latLonObj.lng,
           altitude: satInfo.height, // Include altitude
-          flagPath, // Include flag path
+          flagPath: flagPath.flagPath, // Include flag path
         });
       }
     }
@@ -223,6 +234,33 @@ app.get("/api/refresh-satcat-cache", async (req, res) => {
   } catch (error) {
     console.error("Error refreshing SATCAT cache:", error);
     res.status(500).send("An error occurred while refreshing SATCAT cache.");
+  }
+});
+
+// Define API route for refreshing flag paths
+app.get("/api/refresh-flag-paths", async (req, res) => {
+  try {
+    const satcatData = await fetchAndCacheSatcatData();
+
+    const owners = new Set(Object.values(satcatData).map((sat) => sat.owner));
+    const promises = [];
+
+    owners.forEach((owner) => {
+      const countryCode = getCountryCode(owner);
+      if (countryCode) {
+        promises.push(downloadFlagOverwrite(countryCode));
+      }
+    });
+
+    const results = await Promise.all(promises);
+
+    res.json({
+      message: "Flag paths refreshed successfully",
+      refreshedOwners: results.filter((result) => result !== null),
+    });
+  } catch (error) {
+    console.error("Error refreshing flag paths:", error);
+    res.status(500).send("An error occurred while refreshing flag paths.");
   }
 });
 

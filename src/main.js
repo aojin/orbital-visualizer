@@ -83,8 +83,8 @@ async function fetchSatellites() {
       throw new Error("Network response was not ok");
     }
     const { satellites, topOwners } = await response.json();
-    console.log("Satellite data:", satellites); // Log the satellite data to verify it
-    console.log("Top Owners data:", topOwners); // Log the top owners data to verify it
+    // console.log("Satellite data:", satellites); // Log the satellite data to verify it
+    // console.log("Top Owners data:", topOwners); // Log the top owners data to verify it
 
     // Create accordion
     createAccordion(topOwners, satellites.length);
@@ -295,7 +295,7 @@ function init() {
       // Fetch satellite data
       fetchSatellites().then((data) => {
         if (data) {
-          console.log("Fetched satellite data:", data);
+          // console.log("Fetched satellite data:", data);
           addSatellitesToScene(data, earthRadius)
             .then(() => {
               // Hide spinner once satellites are added to the scene
@@ -334,55 +334,145 @@ function init() {
 }
 
 async function addSatellitesToScene(satellites, earthRadius) {
+  console.log("addSatellitesToScene: received satellites data", satellites); // Log the received satellites data
   const satelliteGeometry = new THREE.SphereGeometry(0.1, 8, 8);
-  const dummy = new THREE.Object3D();
   const textureLoader = new THREE.TextureLoader();
 
-  for (const satellite of satellites) {
-    const { latitude, longitude, altitude, flagPath } = satellite;
+  const fallbackMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color for fallback
+  const satelliteMaterialMap = {}; // Cache materials to avoid loading textures multiple times
+  const instancedMeshData = []; // Data for instanced meshes
 
-    // Load flag texture for each satellite
-    const flagTexture = await new Promise((resolve, reject) => {
+  const warningTexturePath = "/warning.png";
+  let warningMaterial;
+
+  // Load warning texture once
+  try {
+    const warningTexture = await new Promise((resolve, reject) => {
       textureLoader.load(
-        `/flags/${flagPath}`, // Updated path
-        (texture) => resolve(texture),
+        warningTexturePath,
+        (texture) => {
+          console.log("Successfully loaded warning texture");
+          resolve(texture);
+        },
         undefined,
         (err) => {
-          console.error("Error loading texture:", err);
+          console.error("Error loading warning texture:", err);
           reject(err);
         }
       );
-    }).catch((error) => {
-      console.error("Texture load error:", error);
-      return null;
     });
+    warningMaterial = new THREE.MeshBasicMaterial({ map: warningTexture });
+  } catch (error) {
+    console.error(
+      "Error loading warning texture, using fallback material:",
+      error
+    );
+    warningMaterial = fallbackMaterial;
+  }
 
-    if (!flagTexture) {
-      continue; // Skip this satellite if the texture failed to load
+  for (const satellite of satellites) {
+    const { country, objectType } = satellite;
+
+    // Check for specific object types and use warning.png
+    if (objectType === "R/B" || objectType === "DEB" || objectType === "UNK") {
+      addSatelliteToInstancedMesh(
+        instancedMeshData,
+        warningMaterial,
+        satellite,
+        earthRadius
+      );
+      continue;
     }
 
-    const satelliteMaterial = new THREE.MeshBasicMaterial({
-      map: flagTexture,
+    const countryCode = country ? country.toLowerCase() : "unknown";
+    const flagPath = `/flags/${countryCode}.png`; // Construct the flag path based on the country code
+
+    try {
+      if (!satelliteMaterialMap[flagPath]) {
+        const flagTexture = await new Promise((resolve, reject) => {
+          textureLoader.load(
+            flagPath,
+            (texture) => {
+              console.log(
+                `Successfully loaded texture for satellite ${satellite.name} from ${flagPath}`
+              );
+              resolve(texture);
+            },
+            undefined,
+            (err) => {
+              console.error("Error loading texture:", err);
+              reject(err);
+            }
+          );
+        });
+
+        if (flagTexture) {
+          satelliteMaterialMap[flagPath] = new THREE.MeshBasicMaterial({
+            map: flagTexture,
+          });
+        } else {
+          satelliteMaterialMap[flagPath] = fallbackMaterial; // Use fallback material if texture loading fails
+        }
+      }
+
+      addSatelliteToInstancedMesh(
+        instancedMeshData,
+        satelliteMaterialMap[flagPath],
+        satellite,
+        earthRadius
+      );
+    } catch (error) {
+      console.error("Texture load error:", error);
+      satelliteMaterialMap[flagPath] = fallbackMaterial; // Use fallback material if texture loading fails
+      addSatelliteToInstancedMesh(
+        instancedMeshData,
+        fallbackMaterial,
+        satellite,
+        earthRadius
+      );
+    }
+  }
+
+  // Create and add instanced meshes to the scene
+  instancedMeshData.forEach(({ material, positions }) => {
+    const instancedMesh = new THREE.InstancedMesh(
+      satelliteGeometry,
+      material,
+      positions.length
+    );
+    const dummy = new THREE.Object3D();
+
+    positions.forEach((position, index) => {
+      dummy.position.copy(position);
+      dummy.updateMatrix();
+      instancedMesh.setMatrixAt(index, dummy.matrix);
     });
 
-    const satelliteMesh = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
+    scene.add(instancedMesh);
+  });
+}
 
-    // Apply a scaling factor to the altitude for better visualization
-    const altitudeScaleFactor = 0.01; // Adjust this factor as needed
-    const position = latLongToCartesian(
-      latitude,
-      longitude,
-      earthRadius + altitude * altitudeScaleFactor
-    ); // Adjust radius to place satellites in orbit
-    satelliteMesh.position.copy(position);
+function addSatelliteToInstancedMesh(
+  instancedMeshData,
+  material,
+  satellite,
+  earthRadius
+) {
+  const { latitude, longitude, altitude } = satellite;
+  const altitudeScaleFactor = 0.01; // Adjust this factor as needed
+  const position = latLongToCartesian(
+    latitude,
+    longitude,
+    earthRadius + altitude * altitudeScaleFactor
+  ); // Adjust radius to place satellites in orbit
 
-    dummy.position.copy(position);
-    dummy.updateMatrix();
-    satelliteMesh.matrixAutoUpdate = false;
-    satelliteMesh.updateMatrix();
-
-    scene.add(satelliteMesh);
+  let data = instancedMeshData.find((data) => data.material === material);
+  if (!data) {
+    data = { material, positions: [] };
+    instancedMeshData.push(data);
   }
+
+  data.positions.push(position);
 }
 
 // Function to convert latitude and longitude to Cartesian coordinates
