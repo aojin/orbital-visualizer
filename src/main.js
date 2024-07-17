@@ -75,7 +75,6 @@ function logShaderErrors() {
     }
   });
 }
-``;
 
 async function fetchSatellites() {
   try {
@@ -93,6 +92,7 @@ async function fetchSatellites() {
     return satellites;
   } catch (error) {
     console.error("Error fetching satellite data:", error);
+    showErrorPage(error.message); // Show error page with the error message
   }
 }
 
@@ -167,23 +167,9 @@ function init() {
         map: earthTexture,
         bumpMap: bumpTexture,
         bumpScale: 0.05,
-        // onBeforeCompile: (shader) => {
-        //   // Log the uniforms for debugging
-        //   console.log("Shader Uniforms:", shader.uniforms);
-        //   // Adding custom shader code to catch errors
-        //   shader.vertexShader = `#define ORIGINAL
-        //     ${shader.vertexShader}`;
-        //   shader.fragmentShader = `#define ORIGINAL
-        //     ${shader.fragmentShader}`;
-        // },
       });
       const earth = new THREE.Mesh(geometry, material);
       scene.add(earth);
-
-      // Log the program info after the shaders are compiled and linked
-      // setTimeout(() => {
-      //   logShaderErrors();
-      // }, 1000); // Adjust timeout as needed
 
       // Lights
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -310,7 +296,17 @@ function init() {
       fetchSatellites().then((data) => {
         if (data) {
           console.log("Fetched satellite data:", data);
-          addSatellitesToScene(data, earthRadius);
+          addSatellitesToScene(data, earthRadius)
+            .then(() => {
+              // Hide spinner once satellites are added to the scene
+              spinner.style.display = "none";
+            })
+            .catch((err) => {
+              console.error("Error adding satellites to scene:", err);
+              showErrorPage(
+                "Error adding satellites to scene. Please try again later."
+              );
+            });
         }
       });
 
@@ -337,21 +333,39 @@ function init() {
     });
 }
 
-function addSatellitesToScene(satellites, earthRadius) {
+async function addSatellitesToScene(satellites, earthRadius) {
   const satelliteGeometry = new THREE.SphereGeometry(0.1, 8, 8);
-  const satelliteMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-  const satelliteCount = satellites.length;
-
-  const instancedMesh = new THREE.InstancedMesh(
-    satelliteGeometry,
-    satelliteMaterial,
-    satelliteCount
-  );
-
   const dummy = new THREE.Object3D();
+  const textureLoader = new THREE.TextureLoader();
 
-  satellites.forEach((satellite, index) => {
-    const { latitude, longitude, altitude } = satellite;
+  for (const satellite of satellites) {
+    const { latitude, longitude, altitude, flagPath } = satellite;
+
+    // Load flag texture for each satellite
+    const flagTexture = await new Promise((resolve, reject) => {
+      textureLoader.load(
+        `/flags/${flagPath}`, // Updated path
+        (texture) => resolve(texture),
+        undefined,
+        (err) => {
+          console.error("Error loading texture:", err);
+          reject(err);
+        }
+      );
+    }).catch((error) => {
+      console.error("Texture load error:", error);
+      return null;
+    });
+
+    if (!flagTexture) {
+      continue; // Skip this satellite if the texture failed to load
+    }
+
+    const satelliteMaterial = new THREE.MeshBasicMaterial({
+      map: flagTexture,
+    });
+
+    const satelliteMesh = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
 
     // Apply a scaling factor to the altitude for better visualization
     const altitudeScaleFactor = 0.01; // Adjust this factor as needed
@@ -360,12 +374,15 @@ function addSatellitesToScene(satellites, earthRadius) {
       longitude,
       earthRadius + altitude * altitudeScaleFactor
     ); // Adjust radius to place satellites in orbit
+    satelliteMesh.position.copy(position);
+
     dummy.position.copy(position);
     dummy.updateMatrix();
-    instancedMesh.setMatrixAt(index, dummy.matrix);
-  });
+    satelliteMesh.matrixAutoUpdate = false;
+    satelliteMesh.updateMatrix();
 
-  scene.add(instancedMesh);
+    scene.add(satelliteMesh);
+  }
 }
 
 // Function to convert latitude and longitude to Cartesian coordinates

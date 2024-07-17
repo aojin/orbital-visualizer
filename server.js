@@ -12,7 +12,7 @@ import {
   getCOSPAR,
   getLatLngObj,
   getSatelliteInfo,
-} from "tle.js"; // Import specific functions from tle.js
+} from "tle.js";
 import {
   OWNER_MAP,
   OPS_STATUS_DESCRIPTIONS,
@@ -20,6 +20,7 @@ import {
   ORBIT_TYPE_MAP,
   LAUNCH_SITE_MAP,
 } from "./utils/mappings.js";
+import { getFlagPath } from "./utils/downloadFlags.js";
 
 const app = express();
 app.use(cors());
@@ -37,6 +38,7 @@ const getAsync = (key) => redisClient.get(key);
 const setAsync = (key, value, expiration) =>
   redisClient.set(key, value, { EX: expiration });
 const delAsync = (key) => redisClient.del(key); // Delete key from Redis
+const ttlAsync = (key) => redisClient.ttl(key); // Get the TTL for a key
 
 // Fetch and cache SATCAT data
 const fetchAndCacheSatcatData = async () => {
@@ -140,6 +142,7 @@ const fetchCelestrakData = async (retryCount = 0) => {
         const timestampMS = Date.now();
         const latLonObj = getLatLngObj(tle, timestampMS);
         const satInfo = getSatelliteInfo(tle, timestampMS);
+        const { flagPath } = await getFlagPath(OWNER_MAP[tle] || tle); // Get flag path
 
         parsedData.push({
           name: satName,
@@ -150,6 +153,7 @@ const fetchCelestrakData = async (retryCount = 0) => {
           latitude: latLonObj.lat,
           longitude: latLonObj.lng,
           altitude: satInfo.height, // Include altitude
+          flagPath, // Include flag path
         });
       }
     }
@@ -157,7 +161,21 @@ const fetchCelestrakData = async (retryCount = 0) => {
     await setAsync(cacheKey, JSON.stringify(parsedData), cacheExpiration);
     return parsedData;
   } catch (error) {
-    if (error.code === "NR_CLOSED") {
+    if (error.response && error.response.status === 403) {
+      const ttl = await ttlAsync(cacheKey);
+      const minutesLeft = Math.floor(ttl / 60);
+      console.error(
+        `Error fetching Celestrak data: Access forbidden. Serving cached data. Minutes left until cache expiry: ${minutesLeft}`
+      );
+      const cachedData = await getAsync(cacheKey);
+      if (cachedData) {
+        console.log("Serving cached data due to access restriction");
+        return JSON.parse(cachedData);
+      } else {
+        console.error("No cached data available");
+        return [];
+      }
+    } else if (error.code === "NR_CLOSED") {
       console.error("Redis connection closed. Reconnecting...");
       await redisClient.connect(); // Reconnect to Redis server
       return fetchCelestrakData(retryCount + 1); // Retry fetching data
