@@ -3,19 +3,21 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GUI } from "dat.gui";
 import { createAccordion } from "../utils/Accordion.js";
 import { showErrorPage } from "../utils/showErrorPage.js";
-import { OWNER_TO_COUNTRY_CODE_MAP } from "../utils/mappings.js";
+import { createTooltip, onMouseMove } from "../utils/Tooltip.js";
 import {
-  createTooltip,
-  showTooltip,
-  hideTooltip,
-  onMouseMove,
-} from "../utils/Tooltip.js";
+  populateCountryFilter,
+  setOriginalSatellites,
+} from "../utils/filterUtils.js";
+import {
+  setScene,
+  addSatellitesToScene,
+  clearPreviousSatellites,
+  latLongToCartesian,
+} from "../utils/sceneUtils.js";
 
 let scene, camera, renderer, controls, raycaster, mouse;
 let previousScene;
 let initialized = false;
-let tooltip, tooltipTimeout;
-const tooltipDelay = 200; // Delay before showing tooltip (ms)
 
 function disposeResources(object) {
   if (object.geometry) object.geometry.dispose();
@@ -43,6 +45,9 @@ async function fetchSatellites() {
     }
     const { satellites, topOwners } = await response.json();
 
+    // Store the original fetched satellites
+    setOriginalSatellites(satellites);
+
     // Create accordion
     createAccordion(topOwners, satellites.length);
 
@@ -54,27 +59,6 @@ async function fetchSatellites() {
     console.error("Error fetching satellite data:", error);
     showErrorPage(error.message);
   }
-}
-
-function populateCountryFilter(satellites) {
-  const countrySelect = document.getElementById("countrySelect");
-  const countryCounts = satellites.reduce((acc, sat) => {
-    acc[sat.country] = (acc[sat.country] || 0) + 1;
-    return acc;
-  }, {});
-  const uniqueCountries = Object.keys(countryCounts).sort();
-
-  uniqueCountries.forEach((country) => {
-    const option = document.createElement("option");
-    option.value = country;
-    option.textContent = `${country} (${countryCounts[country]})`;
-    countrySelect.appendChild(option);
-  });
-
-  countrySelect.addEventListener("change", () => {
-    const selectedCountry = countrySelect.value;
-    filterSatellitesByCountry(selectedCountry);
-  });
 }
 
 function init() {
@@ -91,6 +75,7 @@ function init() {
   // Scene
   scene = new THREE.Scene();
   previousScene = scene;
+  setScene(scene); // Set the scene in sceneUtils
 
   // Camera
   camera = new THREE.PerspectiveCamera(
@@ -177,18 +162,6 @@ function init() {
       controls.autoRotate = false;
       controls.minDistance = 10;
       controls.maxDistance = 50;
-
-      // Function to convert latitude and longitude to Cartesian coordinates
-      const latLongToCartesian = (lat, lon, radius) => {
-        const phi = (90 - lat) * (Math.PI / 180);
-        const theta = (lon + 180) * (Math.PI / 180);
-
-        const x = -(radius * Math.sin(phi) * Math.cos(theta));
-        const y = radius * Math.cos(phi);
-        const z = radius * Math.sin(phi) * Math.sin(theta);
-
-        return new THREE.Vector3(x, y, z);
-      };
 
       const setInitialView = (latitude, longitude) => {
         const earthCenter = latLongToCartesian(
@@ -283,7 +256,6 @@ function init() {
       // Fetch satellite data
       fetchSatellites().then((data) => {
         if (data) {
-          // console.log("Fetched satellite data:", data);
           addSatellitesToScene(data, earthRadius)
             .then(() => {
               // Hide spinner once satellites are added to the scene
@@ -324,205 +296,6 @@ function init() {
       console.error("Error loading textures:", err);
       showErrorPage("Error loading textures. Please try again later.");
     });
-}
-
-let allSatellites = [];
-let instancedMeshData = []; // Move this declaration outside of the function to be accessible
-
-async function addSatellitesToScene(satellites, earthRadius) {
-  allSatellites = satellites; // Store all satellites for filtering
-  instancedMeshData = []; // Clear existing data
-
-  const satelliteGeometry = new THREE.SphereGeometry(0.1, 8, 8);
-  const textureLoader = new THREE.TextureLoader();
-
-  const fallbackMaterial = new THREE.MeshBasicMaterial({
-    color: 0xb22222,
-    transparent: true,
-    opacity: 0.5,
-  }); // Red color for fallback
-
-  const satelliteMaterialMap = {}; // Cache materials to avoid loading textures multiple times
-
-  console.log({ satelliteMaterialMap });
-
-  const warningTexturePath = "/warning.png";
-  let warningMaterial;
-
-  // Load warning texture once
-  try {
-    const warningTexture = await new Promise((resolve, reject) => {
-      textureLoader.load(
-        warningTexturePath,
-        (texture) => {
-          console.log("Successfully loaded warning texture");
-          resolve(texture);
-        },
-        undefined,
-        (err) => {
-          console.error("Error loading warning texture:", err);
-          reject(err);
-        }
-      );
-    });
-    warningMaterial = new THREE.MeshBasicMaterial({
-      map: warningTexture,
-      transparent: true,
-      opacity: 0.5,
-    });
-  } catch (error) {
-    console.error(
-      "Error loading warning texture, using fallback material:",
-      error
-    );
-    warningMaterial = fallbackMaterial;
-  }
-
-  for (const satellite of satellites) {
-    const { country, objectType } = satellite;
-
-    // Check for specific object types and use warning.png
-    if (objectType === "R/B" || objectType === "DEB" || objectType === "UNK") {
-      addSatelliteToInstancedMesh(
-        instancedMeshData,
-        warningMaterial,
-        satellite,
-        earthRadius
-      );
-      continue;
-    }
-
-    const countryCode = OWNER_TO_COUNTRY_CODE_MAP[country] || "unknown";
-    const flagPath = `/flags/${countryCode}.png`; // Construct the flag path based on the country code
-
-    try {
-      if (!satelliteMaterialMap[flagPath]) {
-        const flagTexture = await new Promise((resolve, reject) => {
-          textureLoader.load(
-            flagPath,
-            (texture) => {
-              console.log(
-                `Successfully loaded texture for satellite ${satellite.name} from ${flagPath}`
-              );
-              resolve(texture);
-            },
-            undefined,
-            (err) => {
-              console.error(
-                `Error loading texture for satellite ${satellite.name} from ${flagPath}:`,
-                err
-              );
-              reject(err);
-            }
-          );
-        });
-
-        if (flagTexture) {
-          satelliteMaterialMap[flagPath] = new THREE.MeshBasicMaterial({
-            map: flagTexture,
-            transparent: true,
-            opacity: 0.5,
-          });
-        } else {
-          satelliteMaterialMap[flagPath] = fallbackMaterial; // Use fallback material if texture loading fails
-        }
-      }
-
-      addSatelliteToInstancedMesh(
-        instancedMeshData,
-        satelliteMaterialMap[flagPath],
-        satellite,
-        earthRadius
-      );
-    } catch (error) {
-      console.error(`Texture load error for ${satellite.name}:`, error);
-      satelliteMaterialMap[flagPath] = fallbackMaterial; // Use fallback material if texture loading fails
-      addSatelliteToInstancedMesh(
-        instancedMeshData,
-        fallbackMaterial,
-        satellite,
-        earthRadius
-      );
-    }
-  }
-
-  // Create and add instanced meshes to the scene
-  instancedMeshData.forEach(({ material, positions, satellites }) => {
-    const instancedMesh = new THREE.InstancedMesh(
-      satelliteGeometry,
-      material,
-      positions.length
-    );
-    instancedMesh.satellites = satellites; // Store satellites data in instancedMesh
-    const dummy = new THREE.Object3D();
-
-    positions.forEach((position, index) => {
-      dummy.position.copy(position);
-      dummy.updateMatrix();
-      instancedMesh.setMatrixAt(index, dummy.matrix);
-    });
-
-    scene.add(instancedMesh);
-  });
-}
-
-function filterSatellitesByCountry(selectedCountry) {
-  const filteredSatellites =
-    selectedCountry === "all"
-      ? allSatellites
-      : allSatellites.filter((sat) => sat.country === selectedCountry);
-
-  // Remove existing satellites
-  clearPreviousSatellites();
-
-  // Add filtered satellites to scene
-  addSatellitesToScene(filteredSatellites, 5); // Assuming earthRadius is 5
-}
-
-function clearPreviousSatellites() {
-  for (let i = scene.children.length - 1; i >= 0; i--) {
-    const obj = scene.children[i];
-    if (obj instanceof THREE.InstancedMesh) {
-      scene.remove(obj);
-      disposeResources(obj);
-    }
-  }
-}
-
-function addSatelliteToInstancedMesh(
-  instancedMeshData,
-  material,
-  satellite,
-  earthRadius
-) {
-  const { latitude, longitude, altitude } = satellite;
-  const altitudeScaleFactor = 0.01; // Adjust this factor as needed
-  const position = latLongToCartesian(
-    latitude,
-    longitude,
-    earthRadius + altitude * altitudeScaleFactor
-  ); // Adjust radius to place satellites in orbit
-
-  let data = instancedMeshData.find((data) => data.material === material);
-  if (!data) {
-    data = { material, positions: [], satellites: [] };
-    instancedMeshData.push(data);
-  }
-
-  data.positions.push(position);
-  data.satellites.push(satellite); // Store satellite data
-}
-
-// Function to convert latitude and longitude to Cartesian coordinates
-function latLongToCartesian(lat, lon, radius) {
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-
-  const x = -(radius * Math.sin(phi) * Math.cos(theta));
-  const y = radius * Math.cos(phi);
-  const z = radius * Math.sin(phi) * Math.sin(theta);
-
-  return new THREE.Vector3(x, y, z);
 }
 
 // Initialize the scene when the DOM content is loaded

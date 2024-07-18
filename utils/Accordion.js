@@ -4,7 +4,7 @@ export function createAccordion(topOwners, satelliteCount) {
   const accordionContainer = document.createElement("div");
   accordionContainer.style.position = "absolute";
   accordionContainer.style.left = "10px";
-  accordionContainer.style.top = "10px";
+  accordionContainer.style.top = "120px";
   accordionContainer.style.backgroundColor = "rgba(255, 255, 255, 1)";
   accordionContainer.style.padding = "10px";
   accordionContainer.style.border = "1px solid #ccc";
