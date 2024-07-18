@@ -57,10 +57,17 @@ const fetchAndCacheSatcatData = async () => {
       return JSON.parse(cachedData);
     }
 
+    // Group ALL does not exist, must be active or inactive
     const response = await axios.get(
-      "https://celestrak.org/satcat/records.php?GROUP=all&FORMAT=JSON"
+      "https://celestrak.org/satcat/records.php?GROUP=active&FORMAT=JSON"
     );
-    console.log("SATCAT data fetched from API:", response.data);
+
+    // Ensure response.data is an array
+    if (!Array.isArray(response.data)) {
+      throw new Error("Expected response.data to be an array");
+    }
+
+    // console.log("SATCAT data fetched from API:", response.data);
 
     const satcatData = response.data.reduce((acc, item) => {
       acc[item.NORAD_CAT_ID] = {
@@ -83,7 +90,7 @@ const fetchAndCacheSatcatData = async () => {
     await setAsync(cacheKey, JSON.stringify(satcatData), cacheExpiration);
     return satcatData;
   } catch (error) {
-    console.error("Error fetching SATCAT data:", error);
+    console.error("Error fetching SATCAT data:", error.message);
     return {};
   }
 };
