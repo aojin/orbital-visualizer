@@ -1,8 +1,6 @@
 import express from "express";
-import { ApolloServer } from "apollo-server-express";
 import path from "path";
 import http from "http";
-import graphqlSchema from "./api/graphql.js";
 import cors from "cors";
 import axios from "axios";
 import { createClient } from "redis";
@@ -20,12 +18,12 @@ import {
   OBJECT_TYPE_MAP,
   ORBIT_TYPE_MAP,
   LAUNCH_SITE_MAP,
-} from "./utils/mappings.js";
+} from "../utils/mappings.js";
 import {
   getFlagPath,
   downloadFlagOverwrite,
   getCountryCode,
-} from "./utils/downloadFlags.js";
+} from "../utils/downloadFlags.js";
 
 const app = express();
 app.use(cors());
@@ -115,11 +113,6 @@ const initializeTleDataWithSatcat = async (tleData) => {
     return satellite;
   });
 };
-
-// GraphQL setup
-const apolloServer = new ApolloServer({ schema: graphqlSchema });
-await apolloServer.start();
-apolloServer.applyMiddleware({ app, path: "/api/graphql" });
 
 // Serve static files
 app.use(express.static(path.join(process.cwd(), "public")));
