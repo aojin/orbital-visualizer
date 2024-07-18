@@ -6,7 +6,7 @@
       "use": "@vercel/node"
     },
     {
-      "src": "webpack.config.js",
+      "src": "src/main.js",
       "use": "@vercel/static-build",
       "config": {
         "distDir": "dist"
@@ -16,7 +16,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/server.js"
+      "dest": "/api/$1"
     },
     {
       "src": "/(.*)",
