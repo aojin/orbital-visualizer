@@ -24,14 +24,19 @@ import {
   downloadFlagOverwrite,
   getCountryCode,
 } from "../utils/downloadFlags.js";
+import { fileURLToPath } from "url";
 
 const app = express();
 app.use(cors());
 
 const server = http.createServer(app);
 
+// Resolve __dirname in ES module scope
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Setup Redis
-const redisClient = createClient();
+const redisClient = createClient({ url: process.env.REDIS_URL });
 redisClient.on("error", (err) => console.log("Redis Client Error", err));
 redisClient.on("connect", () => console.log("Redis Client Connected"));
 
@@ -64,8 +69,6 @@ const fetchAndCacheSatcatData = async () => {
     if (!Array.isArray(response.data)) {
       throw new Error("Expected response.data to be an array");
     }
-
-    // console.log("SATCAT data fetched from API:", response.data);
 
     const satcatData = response.data.reduce((acc, item) => {
       acc[item.NORAD_CAT_ID] = {
@@ -115,7 +118,7 @@ const initializeTleDataWithSatcat = async (tleData) => {
 };
 
 // Serve static files
-app.use(express.static(path.join(process.cwd(), "public")));
+app.use(express.static(path.join(__dirname, "..", "dist")));
 
 async function fetchCelestrakData(retryCount = 0) {
   const cacheKey = "celestrakData";
@@ -125,8 +128,7 @@ async function fetchCelestrakData(retryCount = 0) {
     const cachedData = await getAsync(cacheKey);
     if (cachedData) {
       console.log("Serving data from cache");
-      const parsedData = JSON.parse(cachedData);
-      return parsedData;
+      return JSON.parse(cachedData);
     }
 
     // Fetch from Celestrak
@@ -260,6 +262,11 @@ app.get("/api/refresh-flag-paths", async (req, res) => {
     console.error("Error refreshing flag paths:", error);
     res.status(500).send("An error occurred while refreshing flag paths.");
   }
+});
+
+// Serve the frontend
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
 });
 
 const PORT = process.env.PORT || 3000;

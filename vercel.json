@@ -1,14 +1,26 @@
 {
   "version": 2,
   "builds": [
-    { "src": "api/graphql.js", "use": "@vercel/node" },
-    { "src": "api/socket.js", "use": "@vercel/node" },
-    { "src": "public/index.html", "use": "@vercel/static" },
-    { "src": "src/main.js", "use": "@vercel/static" }
+    {
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "src/**/*",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
   ],
   "routes": [
-    { "src": "/api/graphql", "dest": "/api/graphql.js" },
-    { "src": "/api/socket", "dest": "/api/socket.js" },
-    { "src": "/", "dest": "/public/index.html" }
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/$1"
+    }
   ]
 }
