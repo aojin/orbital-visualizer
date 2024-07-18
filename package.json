@@ -1,7 +1,7 @@
 {
   "name": "orbital-visualizer",
   "version": "1.0.0",
-  "main": "src/main.js",
+  "main": "api/server.js",  
   "type": "module",
   "scripts": {
     "start": "node api/server.js",

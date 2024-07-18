@@ -1,4 +1,3 @@
-// webpack.config.js
 import path from "path";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import { fileURLToPath } from "url";
@@ -7,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default {
-  entry: "./src/main.js",
+  entry: "./src/main.js", // Ensure this is the correct entry point for your client-side code
   output: {
     filename: "bundle.js",
     path: path.resolve(__dirname, "dist"),
@@ -40,7 +39,7 @@ export default {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: "./src/index.html",
+      template: "./src/index.html", // Ensure this points to your HTML template
     }),
   ],
   devServer: {
