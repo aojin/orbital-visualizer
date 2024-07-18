@@ -1,12 +1,13 @@
 {
   "name": "orbital-visualizer",
   "version": "1.0.0",
-  "main": "api/server.js",  
+  "main": "api/server.js",
   "type": "module",
   "scripts": {
     "start": "node api/server.js",
     "start-dev": "webpack serve --mode development",
-    "build": "webpack --mode production"
+    "build": "webpack --mode production",
+    "vercel-build": "npm run build"
   },
   "keywords": [],
   "author": "",
