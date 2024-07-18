@@ -2,6 +2,14 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GUI } from "dat.gui";
 import { createAccordion } from "../utils/Accordion.js";
+import { showErrorPage } from "../utils/showErrorPage.js";
+import { OWNER_TO_COUNTRY_CODE_MAP } from "../utils/mappings.js";
+import {
+  createTooltip,
+  showTooltip,
+  hideTooltip,
+  onMouseMove,
+} from "../utils/Tooltip.js";
 
 let scene, camera, renderer, controls, raycaster, mouse;
 let previousScene;
@@ -27,57 +35,6 @@ function clearPreviousScene() {
   }
 }
 
-function showErrorPage(errorMessage) {
-  const canvasContainer = document.getElementById("canvasContainer");
-  canvasContainer.innerHTML = ""; // Clear the existing content
-
-  const errorDiv = document.createElement("div");
-  errorDiv.style.position = "absolute";
-  errorDiv.style.top = "50%";
-  errorDiv.style.left = "50%";
-  errorDiv.style.transform = "translate(-50%, -50%)";
-  errorDiv.style.textAlign = "center";
-  errorDiv.style.color = "red";
-  errorDiv.style.fontSize = "20px";
-  errorDiv.style.padding = "20px";
-  errorDiv.style.border = "1px solid red";
-  errorDiv.style.backgroundColor = "white";
-  errorDiv.innerText = "An error occurred:\n" + errorMessage;
-
-  canvasContainer.appendChild(errorDiv);
-  // Hide spinner if there's an error
-  const spinner = document.getElementById("spinner");
-  spinner.style.display = "none";
-}
-
-function logShaderErrors() {
-  const gl = renderer.getContext();
-  const programs = renderer.info.programs;
-  programs.forEach((program) => {
-    const { cacheKey, usedTimes, vertexShader, fragmentShader } = program;
-    console.log(`Program CacheKey: ${cacheKey}`);
-    console.log(`Used Times: ${usedTimes}`);
-    if (vertexShader) {
-      const status = gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS);
-      const source = gl.getShaderSource(vertexShader);
-      console.log("Vertex Shader Compile Status:", status);
-      console.log("Vertex Shader Source:", source);
-    }
-    if (fragmentShader) {
-      const status = gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS);
-      const source = gl.getShaderSource(fragmentShader);
-      console.log("Fragment Shader Compile Status:", status);
-      console.log("Fragment Shader Source:", source);
-    }
-    const linkStatus = gl.getProgramParameter(program.program, gl.LINK_STATUS);
-    console.log("Program Link Status:", linkStatus);
-    if (!linkStatus) {
-      const infoLog = gl.getProgramInfoLog(program.program);
-      console.error("Program Info Log:", infoLog);
-    }
-  });
-}
-
 async function fetchSatellites() {
   try {
     const response = await fetch("http://localhost:3000/api/satellites");
@@ -85,17 +42,39 @@ async function fetchSatellites() {
       throw new Error("Network response was not ok");
     }
     const { satellites, topOwners } = await response.json();
-    // console.log("Satellite data:", satellites); // Log the satellite data to verify it
-    // console.log("Top Owners data:", topOwners); // Log the top owners data to verify it
 
     // Create accordion
     createAccordion(topOwners, satellites.length);
 
+    // Populate country filter
+    populateCountryFilter(satellites);
+
     return satellites;
   } catch (error) {
     console.error("Error fetching satellite data:", error);
-    showErrorPage(error.message); // Show error page with the error message
+    showErrorPage(error.message);
   }
+}
+
+function populateCountryFilter(satellites) {
+  const countrySelect = document.getElementById("countrySelect");
+  const countryCounts = satellites.reduce((acc, sat) => {
+    acc[sat.country] = (acc[sat.country] || 0) + 1;
+    return acc;
+  }, {});
+  const uniqueCountries = Object.keys(countryCounts).sort();
+
+  uniqueCountries.forEach((country) => {
+    const option = document.createElement("option");
+    option.value = country;
+    option.textContent = `${country} (${countryCounts[country]})`;
+    countrySelect.appendChild(option);
+  });
+
+  countrySelect.addEventListener("change", () => {
+    const selectedCountry = countrySelect.value;
+    filterSatellitesByCountry(selectedCountry);
+  });
 }
 
 function init() {
@@ -334,7 +313,9 @@ function init() {
       });
 
       // Mouse move event listener for tooltips
-      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mousemove", (event) =>
+        onMouseMove(event, raycaster, camera, scene)
+      );
 
       // Start the animation loop
       animate();
@@ -345,14 +326,25 @@ function init() {
     });
 }
 
+let allSatellites = [];
+let instancedMeshData = []; // Move this declaration outside of the function to be accessible
+
 async function addSatellitesToScene(satellites, earthRadius) {
-  console.log("addSatellitesToScene: received satellites data", satellites); // Log the received satellites data
+  allSatellites = satellites; // Store all satellites for filtering
+  instancedMeshData = []; // Clear existing data
+
   const satelliteGeometry = new THREE.SphereGeometry(0.1, 8, 8);
   const textureLoader = new THREE.TextureLoader();
 
-  const fallbackMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color for fallback
+  const fallbackMaterial = new THREE.MeshBasicMaterial({
+    color: 0xb22222,
+    transparent: true,
+    opacity: 0.5,
+  }); // Red color for fallback
+
   const satelliteMaterialMap = {}; // Cache materials to avoid loading textures multiple times
-  const instancedMeshData = []; // Data for instanced meshes
+
+  console.log({ satelliteMaterialMap });
 
   const warningTexturePath = "/warning.png";
   let warningMaterial;
@@ -373,7 +365,11 @@ async function addSatellitesToScene(satellites, earthRadius) {
         }
       );
     });
-    warningMaterial = new THREE.MeshBasicMaterial({ map: warningTexture });
+    warningMaterial = new THREE.MeshBasicMaterial({
+      map: warningTexture,
+      transparent: true,
+      opacity: 0.5,
+    });
   } catch (error) {
     console.error(
       "Error loading warning texture, using fallback material:",
@@ -396,7 +392,7 @@ async function addSatellitesToScene(satellites, earthRadius) {
       continue;
     }
 
-    const countryCode = country ? country.toLowerCase() : "unknown";
+    const countryCode = OWNER_TO_COUNTRY_CODE_MAP[country] || "unknown";
     const flagPath = `/flags/${countryCode}.png`; // Construct the flag path based on the country code
 
     try {
@@ -412,7 +408,10 @@ async function addSatellitesToScene(satellites, earthRadius) {
             },
             undefined,
             (err) => {
-              console.error("Error loading texture:", err);
+              console.error(
+                `Error loading texture for satellite ${satellite.name} from ${flagPath}:`,
+                err
+              );
               reject(err);
             }
           );
@@ -421,6 +420,8 @@ async function addSatellitesToScene(satellites, earthRadius) {
         if (flagTexture) {
           satelliteMaterialMap[flagPath] = new THREE.MeshBasicMaterial({
             map: flagTexture,
+            transparent: true,
+            opacity: 0.5,
           });
         } else {
           satelliteMaterialMap[flagPath] = fallbackMaterial; // Use fallback material if texture loading fails
@@ -434,7 +435,7 @@ async function addSatellitesToScene(satellites, earthRadius) {
         earthRadius
       );
     } catch (error) {
-      console.error("Texture load error:", error);
+      console.error(`Texture load error for ${satellite.name}:`, error);
       satelliteMaterialMap[flagPath] = fallbackMaterial; // Use fallback material if texture loading fails
       addSatelliteToInstancedMesh(
         instancedMeshData,
@@ -463,6 +464,29 @@ async function addSatellitesToScene(satellites, earthRadius) {
 
     scene.add(instancedMesh);
   });
+}
+
+function filterSatellitesByCountry(selectedCountry) {
+  const filteredSatellites =
+    selectedCountry === "all"
+      ? allSatellites
+      : allSatellites.filter((sat) => sat.country === selectedCountry);
+
+  // Remove existing satellites
+  clearPreviousSatellites();
+
+  // Add filtered satellites to scene
+  addSatellitesToScene(filteredSatellites, 5); // Assuming earthRadius is 5
+}
+
+function clearPreviousSatellites() {
+  for (let i = scene.children.length - 1; i >= 0; i--) {
+    const obj = scene.children[i];
+    if (obj instanceof THREE.InstancedMesh) {
+      scene.remove(obj);
+      disposeResources(obj);
+    }
+  }
 }
 
 function addSatelliteToInstancedMesh(
@@ -503,62 +527,3 @@ function latLongToCartesian(lat, lon, radius) {
 
 // Initialize the scene when the DOM content is loaded
 document.addEventListener("DOMContentLoaded", init);
-
-// Tooltip functions
-function createTooltip() {
-  tooltip = document.createElement("div");
-  tooltip.style.position = "absolute";
-  tooltip.style.background = "rgba(0, 0, 0, 0.7)";
-  tooltip.style.color = "white";
-  tooltip.style.padding = "5px";
-  tooltip.style.borderRadius = "5px";
-  tooltip.style.pointerEvents = "none";
-  tooltip.style.display = "none";
-  document.body.appendChild(tooltip);
-}
-
-function showTooltip(event, satellite) {
-  clearTimeout(tooltipTimeout);
-  tooltipTimeout = setTimeout(() => {
-    tooltip.innerHTML = `
-      <div><strong>Name:</strong> ${satellite.name}</div>
-      <div><strong>Catalog Number:</strong> ${satellite.catalogNumber}</div>
-      <div><strong>COSPAR ID:</strong> ${satellite.cosparId}</div>
-      <div><strong>Latitude:</strong> ${satellite.latitude.toFixed(2)}</div>
-      <div><strong>Longitude:</strong> ${satellite.longitude.toFixed(2)}</div>
-      <div><strong>Altitude:</strong> ${satellite.altitude.toFixed(2)} km</div>
-      <div><strong>Country:</strong> ${satellite.country}</div>
-      <div><strong>Object Type:</strong> ${satellite.objectType}</div>
-    `;
-    tooltip.style.left = event.clientX + "px";
-    tooltip.style.top = event.clientY + "px";
-    tooltip.style.display = "block";
-  }, tooltipDelay);
-}
-
-function hideTooltip() {
-  clearTimeout(tooltipTimeout);
-  tooltip.style.display = "none";
-}
-
-function onMouseMove(event) {
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-  raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(scene.children, true);
-
-  if (intersects.length > 0) {
-    const instanceId = intersects[0].instanceId;
-    const object = intersects[0].object;
-    if (object instanceof THREE.InstancedMesh && instanceId !== undefined) {
-      const satellite = object.satellites[instanceId];
-      if (satellite) {
-        showTooltip(event, satellite);
-        return;
-      }
-    }
-  }
-
-  hideTooltip();
-}

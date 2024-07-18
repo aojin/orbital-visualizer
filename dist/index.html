@@ -1,1 +1,10 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Three.js Visualization</title><link rel="stylesheet" href="styles.css"/><script defer="defer" src="/bundle.js"></script></head><body><div id="spinner"></div><div id="canvasContainer"><canvas id="myCanvas"></canvas></div><div id="satelliteDataContainer"></div><script src="bundle.js"></script></body></html>
+<!doctype html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Satellite Visualization</title><style>/* Add any additional styles here */
+      #countryFilter {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 100;
+        background-color: white;
+        border: 1px solid #ccc;
+        padding: 5px;
+      }</style><script defer="defer" src="/bundle.js"></script></head><body><div id="canvasContainer"><canvas id="myCanvas"></canvas></div><div id="countryFilter"><label for="countrySelect">Filter by Country:</label> <select id="countrySelect"><option value="all">All</option></select></div><div id="spinner">Loading...</div><script src="path/to/three.js"></script><script src="path/to/OrbitControls.js"></script><script src="path/to/dat.gui.min.js"></script><script src="path/to/your/javascript.js"></script></body></html>

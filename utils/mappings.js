@@ -260,6 +260,135 @@ const COUNTRY_CODE_MAP = {
   "Republic of Zimbabwe": "zw",
 };
 
+const OWNER_TO_COUNTRY_CODE_MAP = {
+  AB: "sa", // Arab Satellite Communications Organization
+  ABS: "hk", // Asia Broadcast Satellite
+  AC: "hk", // Asia Satellite Telecommunications Company (ASIASAT)
+  ALG: "dz", // Algeria
+  ANG: "ao", // Angola
+  ARGN: "ar", // Argentina
+  ARM: "am", // Republic of Armenia
+  ASRA: "at", // Austria
+  AUS: "au", // Australia
+  AZER: "az", // Azerbaijan
+  BEL: "be", // Belgium
+  BELA: "by", // Belarus
+  BERM: "bm", // Bermuda
+  BGD: "bd", // People's Republic of Bangladesh
+  BHUT: "bt", // Kingdom of Bhutan
+  BOL: "bo", // Bolivia
+  BRAZ: "br", // Brazil
+  BUL: "bg", // Bulgaria
+  CA: "ca", // Canada
+  CHBZ: "cn", // China/Brazil
+  CHTU: "cn", // China/Turkey
+  CHLE: "cl", // Chile
+  CIS: "ru", // Commonwealth of Independent States (former USSR)
+  COL: "co", // Colombia
+  CRI: "cr", // Republic of Costa Rica
+  CZCH: "cz", // Czech Republic (former Czechoslovakia)
+  DEN: "dk", // Denmark
+  DJI: "dj", // Republic of Djibouti
+  ECU: "ec", // Ecuador
+  EGYP: "eg", // Egypt
+  ESA: "eu", // European Space Agency
+  ESRO: "eu", // European Space Research Organization
+  EST: "ee", // Estonia
+  ETH: "et", // Ethiopia
+  EUME: "eu", // European Organization for the Exploitation of Meteorological Satellites (EUMETSAT)
+  EUTE: "eu", // European Telecommunications Satellite Organization (EUTELSAT)
+  FGER: "fr", // France/Germany
+  FIN: "fi", // Finland
+  FR: "fr", // France
+  FRIT: "fr", // France/Italy
+  GER: "de", // Germany
+  GHA: "gh", // Republic of Ghana
+  GLOB: "us", // Globalstar
+  GREC: "gr", // Greece
+  GRSA: "gr", // Greece/Saudi Arabia
+  GUAT: "gt", // Guatemala
+  HUN: "hu", // Hungary
+  IM: "gb", // International Mobile Satellite Organization (INMARSAT)
+  IND: "in", // India
+  INDO: "id", // Indonesia
+  IRAN: "ir", // Iran
+  IRAQ: "iq", // Iraq
+  IRID: "us", // Iridium
+  IRL: "ie", // Ireland
+  ISRA: "il", // Israel
+  ISRO: "in", // Indian Space Research Organisation
+  ISS: "us", // International Space Station
+  IT: "it", // Italy
+  ITSO: "us", // International Telecommunications Satellite Organization (INTELSAT)
+  JPN: "jp", // Japan
+  KAZ: "kz", // Kazakhstan
+  KEN: "ke", // Republic of Kenya
+  LAOS: "la", // Laos
+  LKA: "lk", // Democratic Socialist Republic of Sri Lanka
+  LTU: "lt", // Lithuania
+  LUXE: "lu", // Luxembourg
+  MA: "ma", // Morocco
+  MALA: "my", // Malaysia
+  MCO: "mc", // Principality of Monaco
+  MDA: "md", // Republic of Moldova
+  MEX: "mx", // Mexico
+  MMR: "mm", // Republic of the Union of Myanmar
+  MNG: "mn", // Mongolia
+  MUS: "mu", // Mauritius
+  NATO: "us", // North Atlantic Treaty Organization
+  NETH: "nl", // Netherlands
+  NICO: "us", // New ICO
+  NIG: "ng", // Nigeria
+  NKOR: "kp", // Democratic People's Republic of Korea
+  NOR: "no", // Norway
+  NPL: "np", // Federal Democratic Republic of Nepal
+  NZ: "nz", // New Zealand
+  O3B: "lu", // O3b Networks
+  ORB: "us", // ORBCOMM
+  PAKI: "pk", // Pakistan
+  PERU: "pe", // Peru
+  POL: "pl", // Poland
+  POR: "pt", // Portugal
+  PRC: "cn", // People's Republic of China
+  PRY: "py", // Republic of Paraguay
+  PRES: "cn", // People's Republic of China/European Space Agency
+  QAT: "qa", // State of Qatar
+  RASC: "zw", // RascomStar-QAF
+  ROC: "tw", // Taiwan (Republic of China)
+  ROM: "ro", // Romania
+  RP: "ph", // Philippines (Republic of the Philippines)
+  RWA: "rw", // Republic of Rwanda
+  SAFR: "za", // South Africa
+  SAUD: "sa", // Saudi Arabia
+  SDN: "sd", // Republic of Sudan
+  SEAL: "us", // Sea Launch
+  SES: "lu", // SES
+  SGJP: "sg", // Singapore/Japan
+  SING: "sg", // Singapore
+  SKOR: "kr", // Republic of Korea
+  SPN: "es", // Spain
+  STCT: "sg", // Singapore/Taiwan
+  SVN: "si", // Slovenia
+  SWED: "se", // Sweden
+  SWTZ: "ch", // Switzerland
+  TBD: "us", // To Be Determined
+  THAI: "th", // Thailand
+  TMMC: "tm", // Turkmenistan/Monaco
+  TUN: "tn", // Republic of Tunisia
+  TURK: "tr", // Turkey
+  UAE: "ae", // United Arab Emirates
+  UK: "gb", // United Kingdom
+  UKR: "ua", // Ukraine
+  UNK: "unk", // Unknown
+  URY: "uy", // Uruguay
+  US: "us", // United States
+  USBZ: "us", // United States/Brazil
+  VAT: "va", // Vatican City State
+  VENZ: "ve", // Venezuela
+  VTNM: "vn", // Vietnam
+  ZWE: "zw", // Republic of Zimbabwe
+};
+
 const OPS_STATUS_DESCRIPTIONS = {
   "+": "Operational",
   "-": "Nonoperational",
@@ -352,6 +481,7 @@ const LAUNCH_SITE_MAP = {
 export {
   OWNER_MAP,
   COUNTRY_CODE_MAP,
+  OWNER_TO_COUNTRY_CODE_MAP,
   OPS_STATUS_DESCRIPTIONS,
   OBJECT_TYPE_MAP,
   ORBIT_TYPE_MAP,

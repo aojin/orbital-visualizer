@@ -16,6 +16,7 @@ import {
 import {
   OWNER_MAP,
   OPS_STATUS_DESCRIPTIONS,
+  OWNER_TO_COUNTRY_CODE_MAP,
   OBJECT_TYPE_MAP,
   ORBIT_TYPE_MAP,
   LAUNCH_SITE_MAP,
@@ -116,7 +117,7 @@ apolloServer.applyMiddleware({ app, path: "/api/graphql" });
 // Serve static files
 app.use(express.static(path.join(process.cwd(), "public")));
 
-const fetchCelestrakData = async (retryCount = 0) => {
+async function fetchCelestrakData(retryCount = 0) {
   const cacheKey = "celestrakData";
   const cacheExpiration = 60 * 60 * 2; // 2 hours
 
@@ -129,17 +130,12 @@ const fetchCelestrakData = async (retryCount = 0) => {
     }
 
     // Fetch from Celestrak
-    const activeResponse = await axios.get(
+    const response = await axios.get(
       "https://celestrak.com/NORAD/elements/gp.php?GROUP=active&FORMAT=tle"
     );
-    const inactiveResponse = await axios.get(
-      "https://celestrak.com/NORAD/elements/gp.php?GROUP=inactive&FORMAT=tle"
-    );
 
-    const activeTleData = activeResponse.data;
-    const inactiveTleData = inactiveResponse.data;
-    const combinedTleData = `${activeTleData}\n${inactiveTleData}`;
-    const lines = combinedTleData.split("\n");
+    const tleData = response.data;
+    const lines = tleData.split("\n");
     const parsedData = [];
 
     for (let i = 0; i < lines.length; i += 3) {
@@ -152,8 +148,10 @@ const fetchCelestrakData = async (retryCount = 0) => {
         const latLonObj = getLatLngObj(tle, timestampMS);
         const satInfo = getSatelliteInfo(tle, timestampMS);
         const ownerKey = tle.split("\n")[0].trim();
-        const { flagPath } = await getFlagPath(OWNER_MAP[ownerKey] || ownerKey); // Get flag path
-        console.log(`Setting flagPath for ${satName}: ${flagPath.flagPath}`); // Log the flag path
+        const countryCode = OWNER_TO_COUNTRY_CODE_MAP[ownerKey] || "unk"; // Use "unk" if no country code found
+        const flagPath = `/flags/${countryCode}.png`; // Get flag path
+
+        console.log(`Setting flagPath for ${satName}: ${flagPath}`); // Log the flag path
 
         parsedData.push({
           name: satName,
@@ -164,7 +162,7 @@ const fetchCelestrakData = async (retryCount = 0) => {
           latitude: latLonObj.lat,
           longitude: latLonObj.lng,
           altitude: satInfo.height, // Include altitude
-          flagPath: flagPath.flagPath, // Include flag path
+          flagPath, // Include flag path
         });
       }
     }
@@ -195,7 +193,7 @@ const fetchCelestrakData = async (retryCount = 0) => {
       return [];
     }
   }
-};
+}
 
 const getTopSatelliteOwners = (satcatData) => {
   const ownerCounts = Object.values(satcatData).reduce((acc, item) => {
