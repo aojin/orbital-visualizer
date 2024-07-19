@@ -15,6 +15,11 @@ import {
   latLongToCartesian,
 } from "../utils/sceneUtils.js";
 
+const API_URL =
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:3000/api/satellites"
+    : "/api/satellites";
+
 let scene, camera, renderer, controls, raycaster, mouse;
 let previousScene;
 let initialized = false;
@@ -38,9 +43,8 @@ function clearPreviousScene() {
 }
 
 async function fetchSatellites() {
-  const apiUrl = process.env.API_URL || "http://localhost:3000";
   try {
-    const response = await fetch(`${apiUrl}/api/satellites`);
+    const response = await fetch(API_URL);
     if (!response.ok) {
       throw new Error("Network response was not ok");
     }
@@ -108,11 +112,11 @@ function init() {
   const loadTextures = () => {
     return new Promise((resolve, reject) => {
       earthTexture = textureLoader.load(
-        "earth_texture.jpg", // Remove leading slash
+        "/earth_texture.jpg",
         () => {
           console.log("Earth texture loaded successfully.");
           bumpTexture = textureLoader.load(
-            "earth_bump_texture.png", // Remove leading slash
+            "/earth_bump_texture.png",
             () => {
               resolve();
             },
