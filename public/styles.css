@@ -1,3 +1,12 @@
+body,
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 #spinner {
   position: fixed;
   top: 50%;
@@ -23,4 +32,16 @@
 
 #canvasContainer {
   visibility: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+#countryFilter {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 100;
+  background-color: white;
+  border: 1px solid #ccc;
+  padding: 5px;
 }

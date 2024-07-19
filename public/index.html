@@ -4,20 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Satellite Visualization</title>
-    <style>
-      /* Add any additional styles here */
-      #countryFilter {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        z-index: 100;
-        background-color: white;
-        border: 1px solid #ccc;
-        padding: 5px;
-      }
-    </style>
+    <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <div id="spinner"></div>
     <div id="canvasContainer">
       <canvas id="myCanvas"></canvas>
     </div>
@@ -27,7 +17,6 @@
         <option value="all">All</option>
       </select>
     </div>
-    <div id="spinner">Loading...</div>
     <script src="bundle.js"></script>
   </body>
 </html>

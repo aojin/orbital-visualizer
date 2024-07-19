@@ -66,6 +66,81 @@ async function fetchSatellites() {
   }
 }
 
+async function preloadFlags(satellites) {
+  const flagPaths = satellites.map((satellite) => satellite.flagPath);
+  const loadFlag = (src) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = resolve;
+      img.onerror = () => {
+        console.warn(`Image not found: ${src}, using fallback image.`);
+        img.src = "/flags/unknown.png"; // Fallback image
+        img.onload = resolve;
+        img.onerror = reject;
+      };
+      img.src = src;
+    });
+  };
+
+  const promises = flagPaths.map(loadFlag);
+  await Promise.all(promises);
+}
+
+function setInitialView(latitude, longitude) {
+  const earthRadius = 5;
+  const earthCenter = latLongToCartesian(latitude, longitude, earthRadius);
+
+  camera.position.copy(
+    earthCenter.clone().add(new THREE.Vector3(0, 0, controls.maxDistance)) // Ensure this value allows a zoomed-out view
+  );
+  camera.lookAt(earthCenter); // Look at the center of the Earth
+
+  // Update controls if needed
+  controls.update();
+
+  adjustEarthRotation(latitude, longitude);
+}
+
+function adjustEarthRotation(latitude, longitude) {
+  const phi = (90 - latitude) * (Math.PI / 180);
+  const theta = (longitude + 180) * (Math.PI / 180);
+
+  const quaternion = new THREE.Quaternion();
+  quaternion.setFromEuler(new THREE.Euler(phi, theta, 0));
+
+  const earth = scene.getObjectByName("earth");
+  if (earth) {
+    earth.setRotationFromQuaternion(quaternion);
+  }
+}
+
+function loadTextures() {
+  return new Promise((resolve, reject) => {
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load(
+      "/earth_texture.jpg",
+      (earthTexture) => {
+        textureLoader.load(
+          "/earth_bump_texture.png",
+          (bumpTexture) => {
+            resolve({ earthTexture, bumpTexture });
+          },
+          undefined,
+          (err) => {
+            console.error("Error loading bump texture:", err);
+            reject(err);
+          }
+        );
+      },
+      undefined,
+      (err) => {
+        console.error("Error loading earth texture:", err);
+        reject(err);
+      }
+    );
+  });
+}
+
 function init() {
   if (initialized) return; // Prevent multiple initializations
   initialized = true;
@@ -105,39 +180,8 @@ function init() {
   // Tooltip
   createTooltip();
 
-  // Load textures
-  const textureLoader = new THREE.TextureLoader();
-  let earthTexture, bumpTexture;
-
-  const loadTextures = () => {
-    return new Promise((resolve, reject) => {
-      earthTexture = textureLoader.load(
-        "/earth_texture.jpg",
-        () => {
-          console.log("Earth texture loaded successfully.");
-          bumpTexture = textureLoader.load(
-            "/earth_bump_texture.png",
-            () => {
-              resolve();
-            },
-            undefined,
-            (err) => {
-              console.error("Error loading bump texture:", err);
-              reject(err);
-            }
-          );
-        },
-        undefined,
-        (err) => {
-          console.error("Error loading earth texture:", err);
-          reject(err);
-        }
-      );
-    });
-  };
-
   loadTextures()
-    .then(() => {
+    .then(({ earthTexture, bumpTexture }) => {
       // Create Earth
       const earthRadius = 5; // Earth radius in scene units
       const geometry = new THREE.SphereGeometry(earthRadius, 64, 64);
@@ -147,6 +191,7 @@ function init() {
         bumpScale: 0.05,
       });
       const earth = new THREE.Mesh(geometry, material);
+      earth.name = "earth";
       scene.add(earth);
 
       // Lights
@@ -168,36 +213,6 @@ function init() {
       controls.minDistance = 10;
       controls.maxDistance = 50;
 
-      const setInitialView = (latitude, longitude) => {
-        const earthCenter = latLongToCartesian(
-          latitude,
-          longitude,
-          earthRadius
-        );
-
-        camera.position.copy(
-          earthCenter.clone().add(new THREE.Vector3(0, 0, controls.maxDistance)) // Ensure this value allows a zoomed-out view
-        );
-        camera.lookAt(earthCenter); // Look at the center of the Earth
-
-        // Update controls if needed
-        controls.update();
-
-        // Adjust Earth rotation if necessary
-        adjustEarthRotation(latitude, longitude);
-      };
-
-      // Function to adjust the rotation of the Earth mesh using quaternions
-      const adjustEarthRotation = (latitude, longitude) => {
-        const phi = (90 - latitude) * (Math.PI / 180);
-        const theta = (longitude + 180) * (Math.PI / 180);
-
-        const quaternion = new THREE.Quaternion();
-        quaternion.setFromEuler(new THREE.Euler(phi, theta, 0));
-
-        earth.setRotationFromQuaternion(quaternion);
-      };
-
       // Get user's location and set initial view
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
@@ -207,26 +222,17 @@ function init() {
               `User's location: latitude ${latitude}, longitude ${longitude}`
             );
             setInitialView(latitude, longitude);
-            // Hide spinner and show canvas
-            spinner.style.display = "none";
-            canvasContainer.style.visibility = "visible";
           },
           (error) => {
             console.error("Error getting user's location:", error);
             // Fallback to a default location if geolocation fails
             setInitialView(39.8283, -98.5795); // Center of the USA
-            // Hide spinner and show canvas
-            spinner.style.display = "none";
-            canvasContainer.style.visibility = "visible";
           }
         );
       } else {
         console.error("Geolocation is not supported by this browser.");
         // Fallback to a default location if geolocation is not supported
         setInitialView(39.8283, -98.5795); // Center of the USA
-        // Hide spinner and show canvas
-        spinner.style.display = "none";
-        canvasContainer.style.visibility = "visible";
       }
 
       // Add dat.GUI controls
@@ -258,13 +264,16 @@ function init() {
         });
       controlsFolder.open();
 
-      // Fetch satellite data
+      // Fetch satellite data and preload flags
       fetchSatellites().then((data) => {
         if (data) {
-          addSatellitesToScene(data, earthRadius)
+          preloadFlags(data)
+            .then(() => addSatellitesToScene(data, earthRadius))
             .then(() => {
-              // Hide spinner once satellites are added to the scene
+              // Hide spinner once satellites and flags are loaded
               spinner.style.display = "none";
+              // Show canvas
+              canvasContainer.style.visibility = "visible";
             })
             .catch((err) => {
               console.error("Error adding satellites to scene:", err);
