@@ -6,11 +6,8 @@
       "use": "@vercel/node"
     },
     {
-      "src": "webpack.config.mjs",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+      "src": "public/index.html",
+      "use": "@vercel/static-build"
     }
   ],
   "routes": [
@@ -20,7 +17,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/dist/$1"
+      "dest": "/$1"
     }
   ]
 }
