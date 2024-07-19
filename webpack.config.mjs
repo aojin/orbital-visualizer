@@ -41,13 +41,13 @@ export default {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: "./public/index.html", // Ensure this points to the correct path
-      filename: "index.html", // Output to dist/index.html
+      template: "./public/index.html",
+      filename: "index.html",
     }),
     new Dotenv(),
     new CopyWebpackPlugin({
       patterns: [
-        { from: "public", to: "", globOptions: { ignore: ["**/index.html"] } }, // Copy all files except index.html
+        { from: "public", to: "", globOptions: { ignore: ["**/index.html"] } },
       ],
     }),
   ],
@@ -59,7 +59,7 @@ export default {
     port: 9000,
   },
   stats: {
-    children: true, // Show child compilation warnings and errors
-    errorDetails: true, // Show details about errors
+    children: true,
+    errorDetails: true,
   },
 };
