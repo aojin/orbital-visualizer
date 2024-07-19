@@ -1,12 +1,13 @@
 import path from "path";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import { fileURLToPath } from "url";
+import Dotenv from "dotenv-webpack";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export default {
-  entry: "./src/main.js", // Ensure this is the correct entry point for your client-side code
+  entry: "./src/main.js",
   output: {
     filename: "bundle.js",
     path: path.resolve(__dirname, "dist"),
@@ -39,12 +40,13 @@ export default {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      template: "./src/index.html", // Ensure this points to your HTML template
+      template: "./public/index.html",
     }),
+    new Dotenv(),
   ],
   devServer: {
     static: {
-      directory: path.join(__dirname, "dist"),
+      directory: path.join(__dirname, "public"), // Serve static files from 'public' folder
     },
     historyApiFallback: true,
     port: 9000,

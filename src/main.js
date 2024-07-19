@@ -38,8 +38,9 @@ function clearPreviousScene() {
 }
 
 async function fetchSatellites() {
+  const apiUrl = process.env.API_URL || "http://localhost:3000";
   try {
-    const response = await fetch("http://localhost:3000/api/satellites");
+    const response = await fetch(`${apiUrl}/api/satellites`);
     if (!response.ok) {
       throw new Error("Network response was not ok");
     }
@@ -107,11 +108,11 @@ function init() {
   const loadTextures = () => {
     return new Promise((resolve, reject) => {
       earthTexture = textureLoader.load(
-        "/earth_texture.jpg",
+        "earth_texture.jpg", // Remove leading slash
         () => {
           console.log("Earth texture loaded successfully.");
           bumpTexture = textureLoader.load(
-            "/earth_bump_texture.png",
+            "earth_bump_texture.png", // Remove leading slash
             () => {
               resolve();
             },

@@ -6,7 +6,7 @@
       "use": "@vercel/node"
     },
     {
-      "src": "webpack.config.js",
+      "src": "webpack.config.mjs",
       "use": "@vercel/static-build",
       "config": {
         "distDir": "dist"

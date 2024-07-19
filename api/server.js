@@ -128,7 +128,7 @@ const initializeTleDataWithSatcat = async (tleData) => {
 };
 
 // Serve static files
-app.use(express.static(path.join(__dirname, "..", "dist")));
+app.use(express.static(path.join(__dirname, "..", "public")));
 
 async function fetchCelestrakData(retryCount = 0) {
   const cacheKey = "celestrakData";
@@ -160,7 +160,7 @@ async function fetchCelestrakData(retryCount = 0) {
         const latLonObj = getLatLngObj(tle, timestampMS);
         const satInfo = getSatelliteInfo(tle, timestampMS);
         const ownerKey = tle.split("\n")[0].trim();
-        const countryCode = OWNER_TO_COUNTRY_CODE_MAP[ownerKey] || "unk"; // Use "unk" if no country code found
+        const countryCode = OWNER_TO_COUNTRY_CODE_MAP[ownerKey] || "unk"; // Use 'unk' if no country code found
         const flagPath = `/flags/${countryCode}.png`; // Get flag path
 
         console.log(`Setting flagPath for ${satName}: ${flagPath}`); // Log the flag path
@@ -276,7 +276,7 @@ app.get("/api/refresh-flag-paths", async (req, res) => {
 
 // Serve the frontend
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
+  res.sendFile(path.join(__dirname, "..", "public", "index.html"));
 });
 
 const PORT = process.env.PORT || 3000;
