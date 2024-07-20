@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Satellite Visualization</title>
     <link rel="stylesheet" href="styles.css" />
+    <script>
+      function isMobile() {
+        const userAgent =
+          navigator.userAgent || navigator.vendor || window.opera;
+        return /android|iphone|ipad|ipod|opera mini|iemobile|mobile|tablet|kindle|silk|blackberry|bb10|playbook/i.test(
+          userAgent
+        );
+      }
+
+      if (isMobile()) {
+        window.location.href = "/mobile-error.html";
+      }
+    </script>
     <script defer src="/bundle.js"></script>
   </head>
   <body>
