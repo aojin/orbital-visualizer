@@ -5,18 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Satellite Visualization</title>
     <link rel="stylesheet" href="styles.css" />
+    <script defer src="/bundle.js"></script>
   </head>
   <body>
-    <div id="spinner"></div>
-    <div id="canvasContainer">
-      <canvas id="myCanvas"></canvas>
+    <div id="progressContainer">
+      <div id="progressBar">
+        <div id="progress"></div>
+      </div>
     </div>
-    <div id="countryFilter">
+    <div id="canvasContainer" style="display: none">
+      <canvas
+        id="myCanvas"
+        data-engine="three.js r166"
+        width="1920"
+        height="959"
+        style="width: 1920px; height: 959px; touch-action: none"
+      ></canvas>
+    </div>
+    <div id="countryFilter" class="ui-element" style="display: none">
       <label for="countrySelect">Filter by Country:</label>
       <select id="countrySelect">
         <option value="all">All</option>
+        <!-- Dynamically populated options -->
       </select>
     </div>
-    <script src="bundle.js"></script>
+    <div id="dataCard" class="ui-element" style="display: none">
+      <button id="dataCardButton">Satellite Data ▶</button>
+      <div id="accordionContent" style="display: none">
+        <h4>Top 10 Satellite Owners</h4>
+        <ul id="ownerList"></ul>
+        <div id="satelliteCount">Satellites Rendered: 0</div>
+      </div>
+    </div>
+    <div id="controlsContainer" class="ui-element" style="display: none"></div>
   </body>
 </html>

@@ -30,6 +30,11 @@ function clearPreviousSatellites() {
 }
 
 async function addSatellitesToScene(satellites, earthRadius) {
+  if (!Array.isArray(satellites)) {
+    console.error("Expected satellites to be an array, got:", satellites);
+    return;
+  }
+
   instancedMeshData = []; // Clear existing data
 
   const satelliteGeometry = new THREE.SphereGeometry(0.1, 8, 8);
@@ -163,6 +168,8 @@ async function addSatellitesToScene(satellites, earthRadius) {
 
     scene.add(instancedMesh);
   });
+
+  return Promise.resolve(); // Ensure addSatellitesToScene returns a promise
 }
 
 function addSatelliteToInstancedMesh(

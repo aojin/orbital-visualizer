@@ -1,14 +1,5 @@
-import { OWNER_MAP, OWNER_TO_COUNTRY_CODE_MAP } from "./mappings.js";
+import { OWNER_MAP } from "./mappings.js";
 import { addSatellitesToScene, clearPreviousSatellites } from "./sceneUtils.js";
-
-// Create a reverse mapping from country codes to owner keys
-const REVERSE_OWNER_MAP = Object.entries(OWNER_TO_COUNTRY_CODE_MAP).reduce(
-  (acc, [key, value]) => {
-    acc[value] = key;
-    return acc;
-  },
-  {}
-);
 
 let originalSatellites = [];
 let filteredSatellites = [];

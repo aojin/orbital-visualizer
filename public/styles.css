@@ -1,47 +1,79 @@
-body,
-html {
+body {
   margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
   overflow: hidden;
+  font-family: Arial, sans-serif;
 }
 
-#spinner {
-  position: fixed;
+#progressContainer {
+  position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  border: 16px solid #f3f3f3;
-  border-radius: 50%;
-  border-top: 16px solid #3498db;
-  width: 120px;
-  height: 120px;
-  animation: spin 2s linear infinite;
-  z-index: 1000;
+  width: 80%;
+  height: 30px;
+  background-color: #f3f3f3;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
 }
 
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
+#progressBar {
+  width: 100%;
+  height: 100%;
+  background-color: #ddd;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+#progress {
+  height: 100%;
+  width: 0;
+  background-color: #4caf50;
+  transition: width 0.2s;
 }
 
 #canvasContainer {
-  visibility: hidden;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
+}
+
+#countryFilter,
+#dataCard,
+#controlsContainer {
+  position: absolute;
+  z-index: 10;
 }
 
 #countryFilter {
-  position: absolute;
   top: 10px;
   left: 10px;
-  z-index: 100;
-  background-color: white;
-  border: 1px solid #ccc;
-  padding: 5px;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 10px;
+  border-radius: 5px;
+}
+
+#dataCard {
+  top: 50px;
+  left: 10px;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 10px;
+  border-radius: 5px;
+}
+
+#controlsContainer {
+  top: 10px;
+  right: 10px;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.ui-element {
+  display: none; /* Hide UI elements by default */
+}
+
+#dataCardButton {
+  cursor: pointer;
 }
