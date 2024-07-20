@@ -10,6 +10,20 @@ function setOriginalSatellites(satellites) {
 
 function populateCountryFilter(satellites) {
   const countrySelect = document.getElementById("countrySelect");
+  if (!countrySelect) {
+    console.error("Country filter element not found");
+    return;
+  }
+
+  // Clear existing options
+  countrySelect.innerHTML = "";
+
+  // Create "All" option
+  const allOption = document.createElement("option");
+  allOption.value = "all";
+  allOption.textContent = "All";
+  countrySelect.appendChild(allOption);
+
   const countryCounts = satellites.reduce((acc, sat) => {
     const ownerKey = sat.country;
     acc[ownerKey] = (acc[ownerKey] || 0) + 1;
